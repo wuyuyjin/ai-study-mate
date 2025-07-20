@@ -13,3 +13,62 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+model User {
+  id           String        @id @default(uuid())
+  name         String
+  email        String        @unique
+  image        String?
+  subscription String        @default("free")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  studyCards   StudyCard[]
+  studySessions StudySession[]
+  userQuotas   UserQuota[]
+
+  @@map("users")
+}
+
+model StudyCard {
+  id          String        @id @default(uuid())
+  userId      String        @map("user_id")
+  title       String
+  content     String
+  tags        String // Store as JSON string, e.g., "["tag1", "tag2"]"
+  question    String
+  answer      String
+  difficulty  String        @default("medium")
+  isFavorite  Boolean       @default(false) @map("is_favorite")
+  reviewCount Int           @default(0) @map("review_count")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  user        User          @relation(fields: [userId], references: [id])
+  studySessions StudySession[]
+
+  @@map("study_cards")
+}
+
+model StudySession {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  cardId      String    @map("card_id")
+  memoryLevel String    @map("memory_level")
+  sessionDate DateTime  @default(now()) @map("session_date") @db.Date
+  createdAt   DateTime  @default(now()) @map("created_at")
+  user        User      @relation(fields: [userId], references: [id])
+  studyCard   StudyCard @relation(fields: [cardId], references: [id])
+
+  @@map("study_sessions")
+}
+
+model UserQuota {
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
+  date          DateTime  @default(now()) @map("date") @db.Date
+  cardsGenerated Int       @default(0) @map("cards_generated")
+  quizzesTaken  Int       @default(0) @map("quizzes_taken")
+  user          User      @relation(fields: [userId], references: [id])
+
+  @@unique([userId, date])
+  @@map("user_quotas")
+}
