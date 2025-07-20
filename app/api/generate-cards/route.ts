@@ -1,21 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { generateObject } from "ai"
-import { openai } from "@ai-sdk/openai"
-import { z } from "zod"
-
-const CardSchema = z.object({
-  title: z.string().describe("知识点的标题"),
-  tags: z.array(z.string()).describe("相关标签"),
-  content: z.string().describe("知识点的详细内容"),
-  qa: z.object({
-    question: z.string().describe("测试问题"),
-    answer: z.string().describe("标准答案"),
-  }),
-})
-
-const CardsResponseSchema = z.object({
-  cards: z.array(CardSchema),
-})
+import { generateObject } from "@/lib/ai"
+import { CardsResponseSchema } from "@/lib/schemas"
 
 export async function POST(req: NextRequest) {
   try {
@@ -57,7 +42,7 @@ ${customTags.length > 0 ? `用户指定的标签：${customTags.join(", ")}` : "
 请生成知识卡片。`
 
     const { object } = await generateObject({
-      model: openai("gpt-4o"),
+      model: "qwen-turbo",
       system: systemPrompt,
       prompt: userPrompt,
       schema: CardsResponseSchema,
