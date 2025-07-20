@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { generateObject } from "@/lib/ai"
-import { openai } from "@/lib/openai"
+import { configuredOpenai } from "@/lib/openai";
 import { CardsResponseSchema } from "@/lib/schemas"
 import { extractPdfText, extractMarkdownContent, validateFileType, getFileTypeFromName } from "@/lib/pdf-processor"
 
@@ -99,7 +99,7 @@ ${customTags.length > 0 ? `用户指定的标签：${customTags.join(", ")}` : "
 请根据文件内容生成高质量的知识卡片。`
 
     const { object } = await generateObject({
-      model: openai("gpt-4o"),
+      model: "qwen-turbo", // 直接传入模型名称
       system: systemPrompt,
       prompt: userPrompt,
       schema: CardsResponseSchema,
