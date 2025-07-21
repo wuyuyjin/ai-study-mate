@@ -11,14 +11,17 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Loader2, Sparkles, FileText, Upload, X } from "lucide-react"
+import { Loader2, Sparkles, FileText, Upload, X, Save } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface GeneratedCard {
   title: string
   tags: string[]
   content: string
-  qa: {
+  question?: string
+  answer?: string
+  difficulty?: string
+  qa?: {
     question: string
     answer: string
   }
@@ -28,9 +31,11 @@ export function CreateCardForm() {
   const [inputText, setInputText] = useState("")
   const [extractMode, setExtractMode] = useState<"cards" | "qa">("cards")
   const [isGenerating, setIsGenerating] = useState(false)
-  const [generatedCards, setGeneratedCards] = useState<GeneratedCard[]>([])
+  const [currentCard, setCurrentCard] = useState<GeneratedCard | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
   const [customTags, setCustomTags] = useState<string[]>([])
   const [newTag, setNewTag] = useState("")
+  const [defaultDifficulty, setDefaultDifficulty] = useState<string>("medium")
   const { toast } = useToast()
 
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
@@ -69,12 +74,22 @@ export function CreateCardForm() {
       }
 
       const data = await response.json()
-      setGeneratedCards(data.cards)
+      if (data.cards && data.cards.length > 0) {
+        const card = data.cards[0]
+        setCurrentCard({
+          ...card,
+          difficulty: card.difficulty || defaultDifficulty,
+          tags: [...(card.tags || []), ...customTags]
+        })
+        setIsEditing(true)
 
-      toast({
-        title: "生成成功！",
-        description: `已生成 ${data.cards.length} 张知识卡片`,
-      })
+        toast({
+          title: "生成成功！",
+          description: "已生成知识卡片，您可以编辑后保存",
+        })
+      } else {
+        throw new Error("未生成任何卡片")
+      }
     } catch (error) {
       toast({
         title: "生成失败",
@@ -86,19 +101,121 @@ export function CreateCardForm() {
     }
   }
 
-  const handleSaveCards = async () => {
+  const handleGenerateRelated = async () => {
+    if (!currentCard) {
+      toast({
+        title: "没有当前卡片",
+        description: "请先生成一张卡片",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsGenerating(true)
     try {
+      const relatedPrompt = `基于以下知识卡片内容，生成一个相关但不同角度的问题：
+
+当前卡片：
+标题：${currentCard.title}
+内容：${currentCard.content}
+问题：${currentCard.question}
+
+请生成一个新的相关问题，可以是：
+1. 更深入的问题
+2. 应用场景的问题
+3. 对比分析的问题
+4. 实际操作的问题
+
+要求生成一张新的知识卡片。`
+
+      const response = await fetch("/api/generate-cards", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: relatedPrompt,
+          mode: extractMode,
+          customTags: currentCard.tags || [],
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("生成失败")
+      }
+
+      const data = await response.json()
+      if (data.cards && data.cards.length > 0) {
+        const newCard = data.cards[0]
+        setCurrentCard({
+          ...newCard,
+          difficulty: newCard.difficulty || defaultDifficulty,
+          tags: [...(newCard.tags || []), ...(currentCard.tags || [])]
+        })
+
+        toast({
+          title: "生成相关问题成功！",
+          description: "已生成新的相关问题，您可以编辑后保存",
+        })
+      } else {
+        throw new Error("未生成任何卡片")
+      }
+    } catch (error) {
+      toast({
+        title: "生成相关问题失败",
+        description: "请稍后重试",
+        variant: "destructive",
+      })
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleSaveCard = async () => {
+    if (!currentCard) {
+      toast({
+        title: "没有卡片可保存",
+        description: "请先生成一张卡片",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const cardToSave = {
+        title: currentCard.title,
+        content: currentCard.content,
+        question: currentCard.question || currentCard.qa?.question || "",
+        answer: currentCard.answer || currentCard.qa?.answer || "",
+        tags: currentCard.tags || [],
+        difficulty: currentCard.difficulty || defaultDifficulty,
+      }
+
       const response = await fetch("/api/cards", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ cards: generatedCards }),
+        body: JSON.stringify({ cards: [cardToSave] }),
       })
 
       if (!response.ok) {
-        throw new Error("保存失败")
+        const errorData = await response.json()
+
+        if (response.status === 403 && errorData.limit) {
+          // 卡片数量限制错误
+          toast({
+            title: "卡片数量已达上限",
+            description: errorData.message || `免费用户最多只能创建${errorData.limit}张卡片`,
+            variant: "destructive",
+          })
+          return
+        }
+
+        throw new Error(errorData.error || "保存失败")
       }
+
+      const data = await response.json()
 
       toast({
         title: "保存成功！",
@@ -106,9 +223,13 @@ export function CreateCardForm() {
       })
 
       // 重置表单
+      setCurrentCard(null)
+      setIsEditing(false)
       setInputText("")
-      setGeneratedCards([])
       setCustomTags([])
+      setUploadedFile(null)
+      setFetchedContent(null)
+      setUrlInput("")
     } catch (error) {
       toast({
         title: "保存失败",
@@ -315,7 +436,7 @@ export function CreateCardForm() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="mode">提取模式</Label>
                   <Select value={extractMode} onValueChange={(value: "cards" | "qa") => setExtractMode(value)}>
@@ -325,6 +446,20 @@ export function CreateCardForm() {
                     <SelectContent>
                       <SelectItem value="cards">重点卡片提取</SelectItem>
                       <SelectItem value="qa">知识问答生成</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="difficulty">默认难度</Label>
+                  <Select value={defaultDifficulty} onValueChange={setDefaultDifficulty}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="easy">简单</SelectItem>
+                      <SelectItem value="medium">中等</SelectItem>
+                      <SelectItem value="hard">困难</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -590,53 +725,136 @@ export function CreateCardForm() {
         </TabsContent>
       </Tabs>
 
-      {/* 生成结果 */}
-      {generatedCards.length > 0 && (
+      {/* 卡片编辑界面 */}
+      {currentCard && isEditing && (
         <Card>
           <CardHeader>
-            <CardTitle>生成的知识卡片</CardTitle>
-            <CardDescription>AI 已为你生成了 {generatedCards.length} 张知识卡片，你可以编辑后保存</CardDescription>
+            <CardTitle>编辑知识卡片</CardTitle>
+            <CardDescription>您可以编辑AI生成的内容，然后保存到您的学习库</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {generatedCards.map((card, index) => (
-              <Card key={index} className="border-l-4 border-l-primary">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <CardTitle className="text-lg">{card.title}</CardTitle>
-                    <div className="flex gap-1">
-                      {card.tags.map((tag) => (
-                        <Badge key={tag} variant="outline" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div>
-                    <h4 className="font-medium text-sm mb-1">知识内容</h4>
-                    <p className="text-sm text-muted-foreground">{card.content}</p>
-                  </div>
-                  <div className="bg-muted/50 rounded-lg p-3">
-                    <h4 className="font-medium text-sm mb-2">问答测试</h4>
-                    <div className="space-y-2">
-                      <div>
-                        <span className="text-xs font-medium text-primary">问题：</span>
-                        <p className="text-sm">{card.qa.question}</p>
-                      </div>
-                      <div>
-                        <span className="text-xs font-medium text-primary">答案：</span>
-                        <p className="text-sm text-muted-foreground">{card.qa.answer}</p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="card-title">卡片标题</Label>
+                <Input
+                  id="card-title"
+                  value={currentCard.title}
+                  onChange={(e) => setCurrentCard({ ...currentCard, title: e.target.value })}
+                  placeholder="输入卡片标题"
+                />
+              </div>
 
-            <Button onClick={handleSaveCards} className="w-full" size="lg">
-              保存所有卡片
-            </Button>
+              <div className="space-y-2">
+                <Label htmlFor="card-content">知识内容</Label>
+                <Textarea
+                  id="card-content"
+                  value={currentCard.content}
+                  onChange={(e) => setCurrentCard({ ...currentCard, content: e.target.value })}
+                  placeholder="输入知识内容"
+                  rows={4}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="card-question">测试问题</Label>
+                  <Textarea
+                    id="card-question"
+                    value={currentCard.question || currentCard.qa?.question || ""}
+                    onChange={(e) => setCurrentCard({
+                      ...currentCard,
+                      question: e.target.value,
+                      qa: currentCard.qa ? { ...currentCard.qa, question: e.target.value } : undefined
+                    })}
+                    placeholder="输入测试问题"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="card-answer">标准答案</Label>
+                  <Textarea
+                    id="card-answer"
+                    value={currentCard.answer || currentCard.qa?.answer || ""}
+                    onChange={(e) => setCurrentCard({
+                      ...currentCard,
+                      answer: e.target.value,
+                      qa: currentCard.qa ? { ...currentCard.qa, answer: e.target.value } : undefined
+                    })}
+                    placeholder="输入标准答案"
+                    rows={3}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="card-difficulty">难度等级</Label>
+                  <Select
+                    value={currentCard.difficulty || defaultDifficulty}
+                    onValueChange={(value) => setCurrentCard({ ...currentCard, difficulty: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="easy">简单</SelectItem>
+                      <SelectItem value="medium">中等</SelectItem>
+                      <SelectItem value="hard">困难</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>标签</Label>
+                  <div className="flex flex-wrap gap-1">
+                    {(currentCard.tags || []).map((tag, index) => (
+                      <Badge key={index} variant="outline" className="text-xs">
+                        {tag}
+                        <button
+                          onClick={() => {
+                            const newTags = [...(currentCard.tags || [])]
+                            newTags.splice(index, 1)
+                            setCurrentCard({ ...currentCard, tags: newTags })
+                          }}
+                          className="ml-1 hover:text-destructive"
+                        >
+                          ×
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button onClick={handleSaveCard} className="flex-1">
+                <Save className="h-4 w-4 mr-2" />
+                保存卡片
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleGenerateRelated}
+                disabled={isGenerating}
+              >
+                {isGenerating ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4 mr-2" />
+                )}
+                生成相关问题
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setCurrentCard(null)
+                  setIsEditing(false)
+                }}
+              >
+                重新开始
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}

@@ -8,17 +8,18 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Filter, BookOpen, Edit, Trash2, Star, MoreHorizontal } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
+import { formatRelativeTime, formatDateTime } from "@/lib/utils/date"
 
 interface StudyCard {
   id: string
   title: string
   tags: string[]
   content: string
-  qa: {
-    question: string
-    answer: string
-  }
+  question: string
+  answer: string
   createdAt: string
+  updatedAt: string
   reviewCount: number
   difficulty: "easy" | "medium" | "hard"
   isFavorite: boolean
@@ -30,64 +31,49 @@ export function CardsManager() {
   const [selectedTag, setSelectedTag] = useState<string>("all")
   const [sortBy, setSortBy] = useState<string>("newest")
   const [allTags, setAllTags] = useState<string[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isMounted, setIsMounted] = useState(false)
+
+  // 分页相关状态
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize] = useState(10) // 每页显示10张卡片
 
   useEffect(() => {
-    // 模拟数据加载
-    const mockCards: StudyCard[] = [
-      {
-        id: "1",
-        title: "牛顿第一定律",
-        tags: ["物理", "力学"],
-        content: "物体在不受外力作用时将保持静止或匀速直线运动状态。这个定律也被称为惯性定律，是经典力学的基础。",
-        qa: {
-          question: "牛顿第一定律的核心内容是什么？",
-          answer: "物体在不受外力时保持原运动状态。",
-        },
-        createdAt: "2024-01-20",
-        reviewCount: 3,
-        difficulty: "medium",
-        isFavorite: true,
-      },
-      {
-        id: "2",
-        title: "React Hooks",
-        tags: ["编程", "React", "JavaScript"],
-        content:
-          "React Hooks 是 React 16.8 引入的新特性，允许在函数组件中使用状态和其他 React 特性。常用的 Hooks 包括 useState、useEffect、useContext 等。",
-        qa: {
-          question: "React Hooks 的主要作用是什么？",
-          answer: "允许在函数组件中使用状态和其他 React 特性。",
-        },
-        createdAt: "2024-01-19",
-        reviewCount: 1,
-        difficulty: "hard",
-        isFavorite: false,
-      },
-      {
-        id: "3",
-        title: "数据结构 - 栈",
-        tags: ["计算机科学", "数据结构"],
-        content:
-          "栈是一种后进先出（LIFO）的数据结构。只能在栈顶进行插入和删除操作。常用操作包括 push（入栈）和 pop（出栈）。",
-        qa: {
-          question: "栈的特点是什么？",
-          answer: "后进先出（LIFO），只能在栈顶操作。",
-        },
-        createdAt: "2024-01-18",
-        reviewCount: 5,
-        difficulty: "easy",
-        isFavorite: false,
-      },
-    ]
-
-    setCards(mockCards)
-
-    // 提取所有标签
-    const tags = Array.from(new Set(mockCards.flatMap((card) => card.tags)))
-    setAllTags(tags)
+    setIsMounted(true)
+    loadCards()
   }, [])
 
-  const filteredCards = cards
+  const loadCards = async () => {
+    try {
+      setIsLoading(true)
+      const response = await fetch("/api/cards")
+
+      if (!response.ok) {
+        throw new Error("获取卡片失败")
+      }
+
+      const data = await response.json()
+      if (data.success && data.cards) {
+        setCards(data.cards)
+
+        // 提取所有标签
+        const tags = new Set<string>()
+        data.cards.forEach((card: StudyCard) => {
+          card.tags.forEach((tag: string) => tags.add(tag))
+        })
+        setAllTags(Array.from(tags))
+      }
+    } catch (error) {
+      console.error("加载卡片失败:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+
+
+  // 过滤和排序卡片
+  const filteredAndSortedCards = cards
     .filter((card) => {
       const matchesSearch =
         card.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -115,6 +101,18 @@ export function CardsManager() {
       }
     })
 
+  // 分页计算
+  const totalCards = filteredAndSortedCards.length
+  const totalPages = Math.ceil(totalCards / pageSize)
+  const startIndex = (currentPage - 1) * pageSize
+  const endIndex = startIndex + pageSize
+  const currentPageCards = filteredAndSortedCards.slice(startIndex, endIndex)
+
+  // 当搜索或筛选条件改变时，重置到第一页
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, selectedTag, sortBy])
+
   const toggleFavorite = (cardId: string) => {
     setCards(cards.map((card) => (card.id === cardId ? { ...card, isFavorite: !card.isFavorite } : card)))
   }
@@ -129,7 +127,7 @@ export function CardsManager() {
         <div>
           <h1 className="text-3xl font-bold">我的学习卡片</h1>
           <p className="text-muted-foreground">
-            共 {cards.length} 张卡片，已筛选 {filteredCards.length} 张
+            共 {cards.length} 张卡片，已筛选 {filteredAndSortedCards.length} 张
           </p>
         </div>
       </div>
@@ -180,88 +178,183 @@ export function CardsManager() {
       </Card>
 
       {/* 卡片列表 */}
-      {filteredCards.length > 0 ? (
-        <div className="grid gap-4">
-          {filteredCards.map((card) => (
-            <Card key={card.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <CardTitle className="text-lg">{card.title}</CardTitle>
-                      {card.isFavorite && <Star className="h-4 w-4 text-yellow-500 fill-current" />}
-                    </div>
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {card.tags.map((tag) => (
-                        <Badge key={tag} variant="outline" className="text-xs">
-                          {tag}
+      {isLoading ? (
+        <Card>
+          <CardContent className="text-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">加载卡片中...</p>
+          </CardContent>
+        </Card>
+      ) : totalCards > 0 ? (
+        <div className="space-y-4">
+          {/* 卡片统计信息 */}
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>
+              显示第 {startIndex + 1}-{Math.min(endIndex, totalCards)} 条，共 {totalCards} 张卡片
+            </span>
+            <span>
+              第 {currentPage} 页，共 {totalPages} 页
+            </span>
+          </div>
+
+          {/* 卡片列表 */}
+          <div className="grid gap-4">
+            {currentPageCards.map((card) => (
+              <Card key={card.id} className="hover:shadow-md transition-shadow">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CardTitle className="text-lg">{card.title}</CardTitle>
+                        {card.isFavorite && <Star className="h-4 w-4 text-yellow-500 fill-current" />}
+                      </div>
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {card.tags.map((tag) => (
+                          <Badge key={tag} variant="outline" className="text-xs">
+                            {tag}
+                          </Badge>
+                        ))}
+                        <Badge
+                          variant={
+                            card.difficulty === "easy"
+                              ? "secondary"
+                              : card.difficulty === "medium"
+                                ? "default"
+                                : "destructive"
+                          }
+                          className="text-xs"
+                        >
+                          {card.difficulty === "easy" ? "简单" : card.difficulty === "medium" ? "中等" : "困难"}
                         </Badge>
-                      ))}
-                      <Badge
-                        variant={
-                          card.difficulty === "easy"
-                            ? "secondary"
-                            : card.difficulty === "medium"
-                              ? "default"
-                              : "destructive"
-                        }
-                        className="text-xs"
-                      >
-                        {card.difficulty === "easy" ? "简单" : card.difficulty === "medium" ? "中等" : "困难"}
-                      </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          复习 {card.reviewCount} 次
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => toggleFavorite(card.id)}>
+                          <Star className="h-4 w-4 mr-2" />
+                          {card.isFavorite ? "取消收藏" : "添加收藏"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Edit className="h-4 w-4 mr-2" />
+                          编辑卡片
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => deleteCard(card.id)} className="text-destructive">
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          删除卡片
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-4 line-clamp-3">{card.content}</p>
+
+                  <div className="bg-muted/50 rounded-lg p-3 mb-4">
+                    <h4 className="font-medium text-sm mb-2 flex items-center">
+                      <BookOpen className="h-4 w-4 mr-1" />
+                      问答测试
+                    </h4>
+                    <div className="space-y-2">
+                      <div>
+                        <span className="text-xs font-medium text-primary">问题：</span>
+                        <p className="text-sm">{card.question}</p>
+                      </div>
+                      <div>
+                        <span className="text-xs font-medium text-primary">答案：</span>
+                        <p className="text-sm text-muted-foreground">{card.answer}</p>
+                      </div>
                     </div>
                   </div>
 
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => toggleFavorite(card.id)}>
-                        <Star className="h-4 w-4 mr-2" />
-                        {card.isFavorite ? "取消收藏" : "添加收藏"}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Edit className="h-4 w-4 mr-2" />
-                        编辑卡片
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => deleteCard(card.id)} className="text-destructive">
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        删除卡片
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4 line-clamp-3">{card.content}</p>
-
-                <div className="bg-muted/50 rounded-lg p-3 mb-4">
-                  <h4 className="font-medium text-sm mb-2 flex items-center">
-                    <BookOpen className="h-4 w-4 mr-1" />
-                    问答测试
-                  </h4>
-                  <div className="space-y-2">
-                    <div>
-                      <span className="text-xs font-medium text-primary">问题：</span>
-                      <p className="text-sm">{card.qa.question}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs font-medium text-primary">答案：</span>
-                      <p className="text-sm text-muted-foreground">{card.qa.answer}</p>
-                    </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span title={isMounted ? formatDateTime(card.createdAt) : card.createdAt}>
+                      创建于 {isMounted ? formatRelativeTime(card.createdAt) : new Date(card.createdAt).toLocaleDateString('zh-CN')}
+                    </span>
+                    <span>已复习 {card.reviewCount} 次</span>
                   </div>
-                </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
 
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>创建于 {card.createdAt}</span>
-                  <span>已复习 {card.reviewCount} 次</span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {/* 分页组件 - 始终显示 */}
+          <div className="flex justify-center mt-6">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={(e) => {
+                      e.preventDefault()
+                      if (currentPage > 1) {
+                        setCurrentPage(Math.max(1, currentPage - 1))
+                      }
+                    }}
+                    className={currentPage === 1 || totalPages <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                  />
+                </PaginationItem>
+
+                {/* 页码显示逻辑 */}
+                {totalPages > 0 && Array.from({ length: Math.max(1, totalPages) }, (_, i) => i + 1).map((page) => {
+                  // 显示逻辑：当前页前后各2页
+                  if (
+                    page === 1 ||
+                    page === totalPages ||
+                    (page >= currentPage - 2 && page <= currentPage + 2)
+                  ) {
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={(e) => {
+                            e.preventDefault()
+                            if (totalPages > 1) {
+                              setCurrentPage(page)
+                            }
+                          }}
+                          isActive={currentPage === page}
+                          className={totalPages > 1 ? "cursor-pointer" : "cursor-default opacity-50"}
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )
+                  } else if (
+                    totalPages > 1 && (
+                      page === currentPage - 3 ||
+                      page === currentPage + 3
+                    )
+                  ) {
+                    return (
+                      <PaginationItem key={page}>
+                        <span className="px-3 py-2">...</span>
+                      </PaginationItem>
+                    )
+                  }
+                  return null
+                })}
+
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={(e) => {
+                      e.preventDefault()
+                      if (currentPage < totalPages) {
+                        setCurrentPage(Math.min(totalPages, currentPage + 1))
+                      }
+                    }}
+                    className={currentPage === totalPages || totalPages <= 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
         </div>
       ) : (
         <Card>

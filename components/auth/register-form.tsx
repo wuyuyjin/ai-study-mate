@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/hooks/use-auth"
 import { Eye, EyeOff, Loader2, Mail, Lock, User } from "lucide-react"
 import Link from "next/link"
 
@@ -24,6 +25,7 @@ export function RegisterForm() {
   const [agreeToTerms, setAgreeToTerms] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
+  const { signIn } = useAuth()
   const router = useRouter()
 
   const handleInputChange = (field: string, value: string) => {
@@ -117,11 +119,20 @@ export function RegisterForm() {
 
       toast({
         title: "注册成功！",
-        description: "账户创建成功，现在可以登录了",
+        description: data.message || "账户创建成功，已自动登录",
       })
 
-      // 跳转到登录页面
-      router.push("/auth/login?message=registration-success")
+      // 如果注册成功且返回了用户信息，自动登录
+      if (data.user) {
+        // 调用signIn来立即更新认证状态
+        signIn(data.user)
+
+        // 跳转到首页
+        router.push("/")
+      } else {
+        // 如果没有返回用户信息，跳转到登录页面
+        router.push("/auth/login?message=registration-success")
+      }
     } catch (error) {
       console.error("注册错误:", error)
       toast({

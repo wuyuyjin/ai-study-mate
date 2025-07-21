@@ -43,15 +43,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error("检查认证状态失败:", error)
-      // 如果API调用失败，检查localStorage中是否有用户信息（兼容旧版本）
-      const savedUser = localStorage.getItem("user")
-      if (savedUser) {
-        try {
-          setUser(JSON.parse(savedUser))
-        } catch (e) {
-          localStorage.removeItem("user")
-        }
-      }
+      // 认证失败，清除用户状态
+      setUser(null)
     } finally {
       setIsLoading(false)
     }
@@ -60,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = (userData?: User) => {
     if (userData) {
       setUser(userData)
-      localStorage.setItem("user", JSON.stringify(userData))
+      // 不再使用localStorage，因为认证状态由HTTP-only cookie管理
     } else {
       // 兼容旧的模拟登录
       const mockUser: User = {
@@ -69,7 +62,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: "learner@example.com",
       }
       setUser(mockUser)
-      localStorage.setItem("user", JSON.stringify(mockUser))
     }
   }
 
@@ -80,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("退出登录失败:", error)
     } finally {
       setUser(null)
-      localStorage.removeItem("user")
+      // 不再需要清除localStorage，因为认证状态由HTTP-only cookie管理
     }
   }
 

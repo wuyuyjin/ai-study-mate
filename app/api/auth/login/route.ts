@@ -1,76 +1,77 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
-// 简化版本，不依赖外部库
-const users = [
-  {
-    id: "1",
-    name: "演示用户",
-    email: "demo@studymate.com",
-    password: "demo123456", // 简化版本，实际项目中应该加密
-    emailVerified: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "2",
-    name: "学习者",
-    email: "learner@example.com",
-    password: "demo123456",
-    emailVerified: true,
-    createdAt: new Date().toISOString(),
-  },
-]
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
-export async function POST(req: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const body = await req.json()
-    const { email, password, rememberMe } = body
-
-    console.log("登录请求:", { email, rememberMe })
+    const { email, password, rememberMe } = await request.json();
 
     if (!email || !password) {
-      return NextResponse.json({ error: "邮箱和密码都是必填项" }, { status: 400 })
+      return NextResponse.json({ error: "邮箱和密码是必填项" }, { status: 400 });
     }
 
     // 查找用户
-    const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase())
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
     if (!user) {
-      return NextResponse.json({ error: "邮箱或密码错误" }, { status: 401 })
+      return NextResponse.json({ error: "邮箱或密码不正确" }, { status: 401 });
     }
 
-    // 验证密码（简化版本）
-    if (user.password !== password) {
-      return NextResponse.json({ error: "邮箱或密码错误" }, { status: 401 })
+    // 比较密码
+    const passwordMatch = await bcrypt.compare(password, user.password);
+
+    if (!passwordMatch) {
+      return NextResponse.json({ error: "邮箱或密码不正确" }, { status: 401 });
     }
 
-    // 检查邮箱是否已验证
-    if (!user.emailVerified) {
-      return NextResponse.json({ error: "请先验证你的邮箱地址" }, { status: 401 })
-    }
+    // 生成JWT token
+    const tokenPayload = {
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+    };
 
-    // 生成简单的token（实际项目中应该使用JWT）
-    const token = `token_${user.id}_${Date.now()}`
+    const expiresIn = rememberMe ? "30d" : "7d";
+    const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn });
 
-    // 返回用户信息（不包含密码）
-    const { password: _, ...userWithoutPassword } = user
+    // 创建响应
+    const userWithoutPassword = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      image: user.image,
+      subscription: user.subscription,
+      emailVerified: user.emailVerified,
+      createdAt: user.createdAt,
+    };
 
     const response = NextResponse.json({
       success: true,
       user: userWithoutPassword,
-      token: token,
-      message: "登录成功",
-    })
+      message: "登录成功"
+    }, { status: 200 });
 
-    // 设置cookie
+    // 设置HTTP-only cookie
+    const maxAge = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000; // 30天或7天
     response.cookies.set("auth-token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: rememberMe ? 30 * 24 * 60 * 60 : 7 * 24 * 60 * 60, // 30天或7天
-    })
+      maxAge: maxAge,
+      path: "/",
+    });
 
-    return response
+    return response;
   } catch (error) {
-    console.error("登录API错误:", error)
-    return NextResponse.json({ error: "服务器错误，请稍后重试" }, { status: 500 })
+    console.error("登录API错误:", error);
+    return NextResponse.json(
+      { error: "内部服务器错误" },
+      { status: 500 },
+    );
   }
 }

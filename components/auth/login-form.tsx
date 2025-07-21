@@ -68,7 +68,7 @@ export function LoginForm() {
 
       toast({
         title: "登录成功！",
-        description: "欢迎回到 AI StudyMate",
+        description: data.message || "欢迎回到 AI StudyMate",
       })
 
       // 跳转到首页

@@ -25,41 +25,97 @@ export function Dashboard() {
     totalCards: 0,
     todayReviews: 0,
     streak: 0,
-    dailyQuota: 10,
+    totalQuota: 30, // 总配额，免费用户30张
     usedQuota: 0,
+    isPremiumUser: false,
   })
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // 模拟数据加载
-    setRecentCards([
-      {
-        id: "1",
-        title: "牛顿第一定律",
-        tags: ["物理", "力学"],
-        content: "物体在不受外力作用时将保持静止或匀速直线运动状态。",
-        createdAt: "2024-01-20",
-        reviewCount: 3,
-        difficulty: "medium",
-      },
-      {
-        id: "2",
-        title: "React Hooks",
-        tags: ["编程", "React"],
-        content: "React Hooks 是 React 16.8 引入的新特性，允许在函数组件中使用状态和其他 React 特性。",
-        createdAt: "2024-01-19",
-        reviewCount: 1,
-        difficulty: "hard",
-      },
-    ])
+    if (user) {
+      loadDashboardData()
+    }
+  }, [user])
 
-    setStats({
-      totalCards: 15,
-      todayReviews: 8,
-      streak: 5,
-      dailyQuota: 10,
-      usedQuota: 3,
-    })
-  }, [])
+  const loadDashboardData = async () => {
+    try {
+      setIsLoading(true)
+
+      // 并行获取卡片数据和连续天数数据
+      const [cardsResponse, streakResponse] = await Promise.all([
+        fetch("/api/cards"),
+        fetch("/api/stats/streak")
+      ])
+
+      let totalCards = 0
+      let todayReviews = 0
+      let sortedCards: any[] = []
+
+      if (cardsResponse.ok) {
+        const cardsData = await cardsResponse.json()
+        const cards = cardsData.cards || []
+
+        // 计算统计信息
+        totalCards = cards.length
+        const today = new Date().toDateString()
+
+        // 计算今日复习次数（简化版本，实际应该从测验记录计算）
+        todayReviews = cards.reduce((sum: number, card: any) => {
+          const cardDate = new Date(card.updatedAt).toDateString()
+          return cardDate === today ? sum + 1 : sum
+        }, 0)
+
+        // 获取最近的卡片（最多5张）
+        sortedCards = cards
+          .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 5)
+          .map((card: any) => {
+            let tags = []
+            try {
+              tags = JSON.parse(card.tags || '[]')
+            } catch (error) {
+              // 如果JSON解析失败，尝试其他格式或使用空数组
+              tags = Array.isArray(card.tags) ? card.tags : []
+            }
+
+            return {
+              id: card.id,
+              title: card.title,
+              tags,
+              content: card.content,
+              createdAt: card.createdAt,
+              reviewCount: card.reviewCount || 0,
+              difficulty: card.difficulty || 'medium'
+            }
+          })
+      }
+
+      // 获取连续天数数据
+      let streak = 0
+      if (streakResponse.ok) {
+        const streakData = await streakResponse.json()
+        streak = streakData.streak || 0
+      }
+
+      // 判断用户类型（简化处理，实际应该从用户数据获取）
+      const isPremiumUser = user?.email?.includes('premium') || false
+      const totalQuota = isPremiumUser ? null : 30 // 免费用户30张，付费用户无限
+
+      setRecentCards(sortedCards)
+      setStats({
+        totalCards,
+        todayReviews,
+        streak,
+        totalQuota,
+        usedQuota: totalCards, // 已使用的配额就是总卡片数
+        isPremiumUser,
+      })
+    } catch (error) {
+      console.error("加载仪表板数据失败:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   if (!user) {
     return (
@@ -116,7 +172,9 @@ export function Dashboard() {
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalCards}</div>
+            <div className="text-2xl font-bold">
+              {isLoading ? "..." : stats.totalCards}
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -125,7 +183,9 @@ export function Dashboard() {
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.todayReviews}</div>
+            <div className="text-2xl font-bold">
+              {isLoading ? "..." : stats.todayReviews}
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -134,18 +194,36 @@ export function Dashboard() {
             <Star className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.streak}</div>
+            <div className="text-2xl font-bold">
+              {isLoading ? "..." : stats.streak}
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">今日配额</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              {stats.isPremiumUser ? "卡片使用" : "总配额"}
+            </CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {stats.usedQuota}/{stats.dailyQuota}
+              {isLoading ? "..." :
+                stats.isPremiumUser ?
+                  `${stats.usedQuota}` :
+                  `${stats.usedQuota}/${stats.totalQuota}`
+              }
             </div>
+            {!stats.isPremiumUser && stats.totalQuota && stats.usedQuota >= stats.totalQuota && (
+              <p className="text-xs text-destructive mt-1">
+                已达上限
+              </p>
+            )}
+            {stats.isPremiumUser && (
+              <p className="text-xs text-muted-foreground mt-1">
+                无限制
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

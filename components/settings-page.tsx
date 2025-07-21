@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -7,11 +8,41 @@ import { Progress } from "@/components/ui/progress"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { User, Crown, Download, Trash2 } from "lucide-react"
+import { User, Crown, Trash2, BookOpen } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 
 export function SettingsPage() {
   const { user } = useAuth()
+  const [cardStats, setCardStats] = useState({
+    totalCards: 0,
+    isLoading: true
+  })
+
+  // 用户类型判断（这里简化处理，实际应该从用户数据获取）
+  const isPremiumUser = user?.email?.includes('premium') || false
+  const cardLimit = isPremiumUser ? null : 30 // 免费用户30张，付费用户无限
+
+  useEffect(() => {
+    if (user) {
+      loadCardStats()
+    }
+  }, [user])
+
+  const loadCardStats = async () => {
+    try {
+      const response = await fetch("/api/cards")
+      if (response.ok) {
+        const data = await response.json()
+        setCardStats({
+          totalCards: data.cards?.length || 0,
+          isLoading: false
+        })
+      }
+    } catch (error) {
+      console.error("加载卡片统计失败:", error)
+      setCardStats(prev => ({ ...prev, isLoading: false }))
+    }
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -49,37 +80,53 @@ export function SettingsPage() {
             <Crown className="h-5 w-5" />
             订阅状态
           </CardTitle>
-          <CardDescription>你的当前订阅计划和使用情况</CardDescription>
+          <CardDescription>你的当前订阅计划和卡片使用情况</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-medium">免费计划</h3>
-              <p className="text-sm text-muted-foreground">每日限制使用</p>
+              <h3 className="font-medium">
+                {isPremiumUser ? "专业版" : "免费计划"}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {isPremiumUser ? "无限制使用" : "限制30张卡片"}
+              </p>
             </div>
-            <Badge variant="outline">免费用户</Badge>
+            <Badge variant={isPremiumUser ? "default" : "outline"}>
+              {isPremiumUser ? "专业用户" : "免费用户"}
+            </Badge>
           </div>
 
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span>今日卡片生成</span>
-              <span>3/10</span>
+              <span className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4" />
+                卡片使用情况
+              </span>
+              <span>
+                {cardStats.isLoading ? "..." : cardStats.totalCards}
+                {cardLimit ? `/${cardLimit}` : " (无限制)"}
+              </span>
             </div>
-            <Progress value={30} className="h-2" />
+            {cardLimit && (
+              <Progress
+                value={cardStats.isLoading ? 0 : (cardStats.totalCards / cardLimit) * 100}
+                className="h-2"
+              />
+            )}
+            {cardLimit && cardStats.totalCards >= cardLimit && (
+              <p className="text-sm text-destructive">
+                ⚠️ 已达到免费用户卡片上限，升级专业版解锁无限制
+              </p>
+            )}
           </div>
 
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>今日测验次数</span>
-              <span>2/5</span>
-            </div>
-            <Progress value={40} className="h-2" />
-          </div>
-
-          <Button className="w-full">
-            <Crown className="h-4 w-4 mr-2" />
-            升级到专业版
-          </Button>
+          {!isPremiumUser && (
+            <Button className="w-full">
+              <Crown className="h-4 w-4 mr-2" />
+              升级到专业版
+            </Button>
+          )}
         </CardContent>
       </Card>
 
@@ -124,22 +171,9 @@ export function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>数据管理</CardTitle>
-          <CardDescription>导出或删除你的学习数据</CardDescription>
+          <CardDescription>管理你的学习数据</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Button variant="outline" className="justify-start bg-transparent">
-              <Download className="h-4 w-4 mr-2" />
-              导出学习数据
-            </Button>
-            <Button variant="outline" className="justify-start bg-transparent">
-              <Download className="h-4 w-4 mr-2" />
-              导出为 Markdown
-            </Button>
-          </div>
-
-          <Separator />
-
           <div className="space-y-2">
             <h4 className="font-medium text-destructive">危险操作</h4>
             <p className="text-sm text-muted-foreground">以下操作不可撤销，请谨慎操作</p>

@@ -1,23 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
+import jwt from "jsonwebtoken"
+import prisma from "@/lib/prisma"
 
-// 模拟用户数据库
-const users = [
-  {
-    id: "1",
-    name: "演示用户",
-    email: "demo@studymate.com",
-    emailVerified: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "2",
-    name: "学习者",
-    email: "learner@example.com",
-    emailVerified: true,
-    createdAt: new Date().toISOString(),
-  },
-]
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
 export async function GET(req: NextRequest) {
   try {
@@ -28,16 +14,28 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "未登录" }, { status: 401 })
     }
 
-    // 简化的token验证（实际项目中应该使用JWT）
-    const tokenParts = token.split("_")
-    if (tokenParts.length !== 3 || tokenParts[0] !== "token") {
+    // 验证JWT token
+    let decoded: any
+    try {
+      decoded = jwt.verify(token, JWT_SECRET)
+    } catch (jwtError) {
       return NextResponse.json({ error: "无效的token" }, { status: 401 })
     }
 
-    const userId = tokenParts[1]
+    // 从数据库获取最新的用户信息
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        subscription: true,
+        emailVerified: true,
+        createdAt: true,
+      },
+    })
 
-    // 查找用户
-    const user = users.find((u) => u.id === userId)
     if (!user) {
       return NextResponse.json({ error: "用户不存在" }, { status: 401 })
     }
