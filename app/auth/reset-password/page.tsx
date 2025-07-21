@@ -1,7 +1,8 @@
-import { ResetPasswordForm } from "@/components/auth/reset-password-form"
+import { Suspense } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Brain } from "lucide-react"
 import Link from "next/link"
+import { ResetPasswordForm } from "@/components/auth/reset-password-form"
 
 export default function ResetPasswordPage() {
   return (
@@ -25,7 +26,9 @@ export default function ResetPasswordPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResetPasswordForm />
+            <Suspense fallback={<div>Loading...</div>}>
+              <ResetPasswordForm />
+            </Suspense>
           </CardContent>
         </Card>
 
