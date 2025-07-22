@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Brain, Plus, User, Settings, LogOut } from "lucide-react"
+import { Brain, Plus, User, Settings, LogOut, Heart } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
 import {
@@ -27,6 +27,10 @@ export function Header() {
         <nav className="hidden md:flex items-center space-x-6">
           <Link href="/cards" className="text-sm font-medium hover:text-primary">
             我的卡片
+          </Link>
+          <Link href="/favorites" className="text-sm font-medium hover:text-primary flex items-center gap-1">
+            <Heart className="h-4 w-4" />
+            收藏卡片
           </Link>
           <Link href="/quiz" className="text-sm font-medium hover:text-primary">
             记忆测验

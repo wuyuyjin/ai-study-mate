@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Brain, BookOpen, Target, Plus, Clock, Star } from "lucide-react"
+import { Brain, BookOpen, Target, Plus, Clock, Star, Heart } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
 
@@ -252,6 +252,12 @@ export function Dashboard() {
               <Link href="/cards">
                 <BookOpen className="h-4 w-4 mr-2" />
                 浏览所有卡片
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="w-full justify-start bg-transparent">
+              <Link href="/favorites">
+                <Heart className="h-4 w-4 mr-2" />
+                我的收藏
               </Link>
             </Button>
           </CardContent>

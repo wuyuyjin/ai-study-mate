@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, Filter, BookOpen, Edit, Trash2, Star, MoreHorizontal } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
+import { useToast } from "@/hooks/use-toast"
+import { EditCardDialog } from "./edit-card-dialog"
 import { formatRelativeTime, formatDateTime } from "@/lib/utils/date"
 
 interface StudyCard {
@@ -33,6 +35,9 @@ export function CardsManager() {
   const [allTags, setAllTags] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isMounted, setIsMounted] = useState(false)
+  const [editingCard, setEditingCard] = useState<StudyCard | null>(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const { toast } = useToast()
 
   // 分页相关状态
   const [currentPage, setCurrentPage] = useState(1)
@@ -113,12 +118,74 @@ export function CardsManager() {
     setCurrentPage(1)
   }, [searchQuery, selectedTag, sortBy])
 
-  const toggleFavorite = (cardId: string) => {
-    setCards(cards.map((card) => (card.id === cardId ? { ...card, isFavorite: !card.isFavorite } : card)))
+  const toggleFavorite = async (cardId: string) => {
+    try {
+      const card = cards.find(c => c.id === cardId)
+      if (!card) return
+
+      const response = await fetch("/api/cards/favorites", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ cardId, isFavorite: !card.isFavorite }),
+      })
+
+      if (!response.ok) {
+        throw new Error("操作失败")
+      }
+
+      setCards(cards.map((c) => (c.id === cardId ? { ...c, isFavorite: !c.isFavorite } : c)))
+
+      toast({
+        title: card.isFavorite ? "已取消收藏" : "已添加收藏",
+        description: card.isFavorite ? "卡片已从收藏中移除" : "卡片已添加到收藏",
+      })
+    } catch (error) {
+      toast({
+        title: "操作失败",
+        description: "请稍后重试",
+        variant: "destructive",
+      })
+    }
   }
 
-  const deleteCard = (cardId: string) => {
-    setCards(cards.filter((card) => card.id !== cardId))
+  const deleteCard = async (cardId: string) => {
+    if (!confirm("确定要删除这张卡片吗？此操作不可撤销。")) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/cards/${cardId}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error("删除失败")
+      }
+
+      setCards(cards.filter((card) => card.id !== cardId))
+
+      toast({
+        title: "删除成功",
+        description: "卡片已成功删除",
+      })
+    } catch (error) {
+      toast({
+        title: "删除失败",
+        description: "请稍后重试",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleEditCard = (card: StudyCard) => {
+    setEditingCard(card)
+    setIsEditDialogOpen(true)
+  }
+
+  const handleCardUpdated = (updatedCard: StudyCard) => {
+    setCards(cards.map(card => card.id === updatedCard.id ? updatedCard : card))
   }
 
   return (
@@ -243,7 +310,7 @@ export function CardsManager() {
                           <Star className="h-4 w-4 mr-2" />
                           {card.isFavorite ? "取消收藏" : "添加收藏"}
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleEditCard(card)}>
                           <Edit className="h-4 w-4 mr-2" />
                           编辑卡片
                         </DropdownMenuItem>
@@ -368,6 +435,14 @@ export function CardsManager() {
           </CardContent>
         </Card>
       )}
+
+      {/* 编辑对话框 */}
+      <EditCardDialog
+        card={editingCard}
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        onCardUpdated={handleCardUpdated}
+      />
     </div>
   )
 }
