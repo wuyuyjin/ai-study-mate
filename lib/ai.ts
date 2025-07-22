@@ -1,11 +1,56 @@
 import { z } from "zod";
 
+// 解析问答格式的文本
+function parseQAFormat(text: string): any {
+    console.log('使用问答格式解析');
+
+    // 提取标题
+    const titleMatch = text.match(/\*\*知识卡片：([^*]+)\*\*/);
+    const title = titleMatch ? titleMatch[1].trim() : "知识卡片";
+
+    // 提取问题 - 从"**问题：**"到下一个"---"或"**"
+    const questionMatch = text.match(/\*\*问题：\*\*\s*([\s\S]*?)(?=---|$)/);
+    const question = questionMatch ? questionMatch[1].trim() : "";
+
+    // 提取答案 - 从"**答案：**"到下一个"---"或"**标签"
+    const answerMatch = text.match(/\*\*答案：\*\*\s*([\s\S]*?)(?=---|$|\*\*标签)/);
+    const answer = answerMatch ? answerMatch[1].trim() : "";
+
+    // 提取标签 - 从"**标签分类：**"到文本结尾
+    const tagsMatch = text.match(/\*\*标签分类：\*\*\s*([\s\S]*?)$/);;
+    let tags: string[] = [];
+    if (tagsMatch) {
+        tags = tagsMatch[1].split('#').filter(tag => tag.trim()).map(tag => tag.trim());
+    }
+
+    const card = {
+        title: title,
+        content: answer, // 使用答案作为内容
+        question: question,
+        answer: answer,
+        tags: tags,
+        difficulty: "medium"
+    };
+
+    console.log('解析出的问答卡片:', card);
+
+    return { cards: [card] };
+}
+
 // 解析结构化文本为JSON对象
 function parseStructuredText(text: string): any {
     console.log('开始解析结构化文本:', text);
     const cards: any[] = [];
 
-    // 按空行分割，每个部分是一张卡片
+    // 尝试不同的解析策略
+
+    // 策略1: 寻找明确的卡片结构
+    if (text.includes('**问题：**') && text.includes('**答案：**')) {
+        console.log('检测到问答格式，使用问答解析策略');
+        return parseQAFormat(text);
+    }
+
+    // 策略2: 按空行分割，每个部分是一张卡片
     const cardBlocks = text.split('\n\n').filter(block => block.trim());
     console.log('分割后的卡片块数量:', cardBlocks.length);
 
@@ -126,11 +171,29 @@ export async function generateObject({
         // 首先尝试直接解析JSON
         parsedObject = JSON.parse(generatedText);
     } catch (parseError: any) {
-        // 如果不是JSON，尝试解析结构化文本
-        try {
-            parsedObject = parseStructuredText(generatedText);
-        } catch (structuredError: any) {
-            throw new Error(`Failed to parse AI response: ${generatedText}. JSON Error: ${parseError.message}. Structured Error: ${structuredError.message}`);
+        // 尝试从文本中提取JSON部分
+        console.log('尝试从文本中提取JSON:', generatedText);
+        const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            try {
+                parsedObject = JSON.parse(jsonMatch[0]);
+                console.log('成功提取JSON:', parsedObject);
+            } catch (extractError: any) {
+                console.log('JSON提取失败，尝试结构化文本解析');
+                // 如果JSON提取失败，尝试解析结构化文本
+                try {
+                    parsedObject = parseStructuredText(generatedText);
+                } catch (structuredError: any) {
+                    throw new Error(`Failed to parse AI response: ${generatedText}. JSON Error: ${parseError.message}. Extract Error: ${extractError.message}. Structured Error: ${structuredError.message}`);
+                }
+            }
+        } else {
+            // 如果找不到JSON，尝试解析结构化文本
+            try {
+                parsedObject = parseStructuredText(generatedText);
+            } catch (structuredError: any) {
+                throw new Error(`Failed to parse AI response: ${generatedText}. JSON Error: ${parseError.message}. Structured Error: ${structuredError.message}`);
+            }
         }
     }
 

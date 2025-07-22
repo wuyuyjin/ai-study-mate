@@ -41,8 +41,45 @@ export function CreateCardForm() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [isProcessingFile, setIsProcessingFile] = useState(false)
   const [urlInput, setUrlInput] = useState("")
-  const [isFetchingUrl, setIsFetchingUrl] = useState(false)
-  const [fetchedContent, setFetchedContent] = useState<{ title: string; content: string } | null>(null)
+  // 文件上传固定使用 Moonshot AI
+  const [generatedCards, setGeneratedCards] = useState<GeneratedCard[]>([])
+  const [selectedCardIndex, setSelectedCardIndex] = useState<number>(0)
+
+  // 处理标签页切换，清空卡片内容
+  const handleTabChange = (value: string) => {
+    // 如果有正在编辑的卡片，给用户一个提示
+    if (currentCard && isEditing) {
+      toast({
+        title: "已切换输入模式",
+        description: "当前编辑的卡片已清空，请重新生成",
+        variant: "default",
+      })
+    }
+
+    // 清空当前编辑的卡片和生成的卡片
+    setCurrentCard(null)
+    setGeneratedCards([])
+    setIsEditing(false)
+    setSelectedCardIndex(0)
+
+    // 根据切换到的标签页，清空相应的输入
+    if (value === "text") {
+      // 清空文件和URL相关状态
+      setUploadedFile(null)
+      setUrlInput("")
+    } else if (value === "file") {
+      // 清空文本和URL相关状态
+      setInputText("")
+      setUrlInput("")
+    } else if (value === "url") {
+      // 清空文本和文件相关状态
+      setInputText("")
+      setUploadedFile(null)
+    }
+
+    // 重置生成状态
+    setIsGenerating(false)
+  }
 
   const handleGenerate = async () => {
     if (!inputText.trim()) {
@@ -215,7 +252,7 @@ export function CreateCardForm() {
         throw new Error(errorData.error || "保存失败")
       }
 
-      const data = await response.json()
+      await response.json()
 
       toast({
         title: "保存成功！",
@@ -228,7 +265,6 @@ export function CreateCardForm() {
       setInputText("")
       setCustomTags([])
       setUploadedFile(null)
-      setFetchedContent(null)
       setUrlInput("")
     } catch (error) {
       toast({
@@ -297,7 +333,10 @@ export function CreateCardForm() {
       formData.append("mode", extractMode)
       formData.append("customTags", JSON.stringify(customTags))
 
-      const response = await fetch("/api/generate-cards-from-file", {
+      // 文件上传固定使用 Moonshot AI
+      const apiEndpoint = "/api/generate-cards-moonshot"
+
+      const response = await fetch(apiEndpoint, {
         method: "POST",
         body: formData,
       })
@@ -309,9 +348,19 @@ export function CreateCardForm() {
       const data = await response.json()
       setGeneratedCards(data.cards)
 
+      // 如果有生成的卡片，设置第一张为当前卡片
+      if (data.cards && data.cards.length > 0) {
+        setCurrentCard({
+          ...data.cards[0],
+          difficulty: data.cards[0].difficulty || defaultDifficulty,
+        })
+        setSelectedCardIndex(0)
+        setIsEditing(true)
+      }
+
       toast({
         title: "生成成功！",
-        description: `已从文件生成 ${data.cards.length} 张知识卡片`,
+        description: `已使用 Moonshot AI 从文件生成 ${data.cards.length} 张知识卡片`,
       })
     } catch (error) {
       toast({
@@ -324,75 +373,50 @@ export function CreateCardForm() {
     }
   }
 
-  const handleFetchUrl = async () => {
-    if (!urlInput.trim()) return
-
-    setIsFetchingUrl(true)
-
-    try {
-      const response = await fetch("/api/fetch-url", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ url: urlInput }),
-      })
-
-      if (!response.ok) {
-        throw new Error("获取网页内容失败")
-      }
-
-      const data = await response.json()
-      setFetchedContent(data)
-
-      toast({
-        title: "获取成功！",
-        description: "已成功获取网页内容",
-      })
-    } catch (error) {
-      toast({
-        title: "获取失败",
-        description: "请检查网址是否正确或稍后重试",
-        variant: "destructive",
-      })
-    } finally {
-      setIsFetchingUrl(false)
-    }
-  }
-
   const handleGenerateFromUrl = async () => {
-    if (!fetchedContent) return
+    if (!urlInput.trim()) return
 
     setIsGenerating(true)
 
     try {
-      const response = await fetch("/api/generate-cards", {
+      const response = await fetch("/api/generate-cards-from-url", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          text: `标题: ${fetchedContent.title}\n\n内容: ${fetchedContent.content}`,
+          url: urlInput,
           mode: extractMode,
           customTags,
         }),
       })
 
       if (!response.ok) {
-        throw new Error("生成失败")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "生成失败")
       }
 
       const data = await response.json()
       setGeneratedCards(data.cards)
 
+      // 如果有生成的卡片，设置第一张为当前卡片
+      if (data.cards && data.cards.length > 0) {
+        setCurrentCard({
+          ...data.cards[0],
+          difficulty: data.cards[0].difficulty || defaultDifficulty,
+        })
+        setSelectedCardIndex(0)
+        setIsEditing(true)
+      }
+
       toast({
         title: "生成成功！",
-        description: `已从网页生成 ${data.cards.length} 张知识卡片`,
+        description: `已使用通义千问从网页生成 ${data.cards.length} 张知识卡片`,
       })
     } catch (error) {
       toast({
         title: "生成失败",
-        description: "请稍后重试",
+        description: error instanceof Error ? error.message : "请检查网址是否正确或稍后重试",
         variant: "destructive",
       })
     } finally {
@@ -402,7 +426,7 @@ export function CreateCardForm() {
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="text" className="w-full">
+      <Tabs defaultValue="text" className="w-full" onValueChange={handleTabChange}>
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="text">
             <FileText className="h-4 w-4 mr-2" />
@@ -472,7 +496,7 @@ export function CreateCardForm() {
                       placeholder="添加标签..."
                       value={newTag}
                       onChange={(e) => setNewTag(e.target.value)}
-                      onKeyPress={(e) => e.key === "Enter" && addCustomTag()}
+                      onKeyDown={(e) => e.key === "Enter" && addCustomTag()}
                     />
                     <Button onClick={addCustomTag} size="sm">
                       添加
@@ -513,7 +537,7 @@ export function CreateCardForm() {
           <Card>
             <CardHeader>
               <CardTitle>上传学习文件</CardTitle>
-              <CardDescription>支持 PDF、Markdown (.md) 文件，AI 将自动提取文本内容</CardDescription>
+              <CardDescription>支持 PDF、Markdown (.md) 文件，使用 Moonshot AI 自动提取文本内容并生成学习卡片</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -588,7 +612,7 @@ export function CreateCardForm() {
                       placeholder="添加标签..."
                       value={newTag}
                       onChange={(e) => setNewTag(e.target.value)}
-                      onKeyPress={(e) => e.key === "Enter" && addCustomTag()}
+                      onKeyDown={(e) => e.key === "Enter" && addCustomTag()}
                     />
                     <Button onClick={addCustomTag} size="sm">
                       添加
@@ -633,37 +657,20 @@ export function CreateCardForm() {
           <Card>
             <CardHeader>
               <CardTitle>网页内容提取</CardTitle>
-              <CardDescription>输入网页链接，AI 将自动提取页面内容并生成知识卡片</CardDescription>
+              <CardDescription>输入网页链接，通义千问将自动提取页面内容并生成知识卡片</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="url-input">网页链接</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="url-input"
-                    type="url"
-                    placeholder="https://example.com/article"
-                    value={urlInput}
-                    onChange={(e) => setUrlInput(e.target.value)}
-                  />
-                  <Button onClick={handleFetchUrl} disabled={!urlInput.trim() || isFetchingUrl} variant="outline">
-                    {isFetchingUrl ? <Loader2 className="h-4 w-4 animate-spin" /> : "获取"}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">支持大多数网页，包括文章、博客、文档等</p>
+                <Input
+                  id="url-input"
+                  type="url"
+                  placeholder="https://example.com/article"
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">输入网页链接，通义千问将自动提取内容并生成知识卡片</p>
               </div>
-
-              {fetchedContent && (
-                <div className="space-y-2">
-                  <Label>预览内容</Label>
-                  <div className="bg-muted/50 rounded-lg p-4 max-h-40 overflow-y-auto">
-                    <h4 className="font-medium text-sm mb-2">{fetchedContent.title}</h4>
-                    <p className="text-sm text-muted-foreground line-clamp-6">
-                      {fetchedContent.content.substring(0, 300)}...
-                    </p>
-                  </div>
-                </div>
-              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -687,7 +694,7 @@ export function CreateCardForm() {
                       placeholder="添加标签..."
                       value={newTag}
                       onChange={(e) => setNewTag(e.target.value)}
-                      onKeyPress={(e) => e.key === "Enter" && addCustomTag()}
+                      onKeyDown={(e) => e.key === "Enter" && addCustomTag()}
                     />
                     <Button onClick={addCustomTag} size="sm">
                       添加
@@ -707,7 +714,7 @@ export function CreateCardForm() {
                 </div>
               )}
 
-              <Button onClick={handleGenerateFromUrl} disabled={!fetchedContent || isGenerating} className="w-full">
+              <Button onClick={handleGenerateFromUrl} disabled={!urlInput.trim() || isGenerating} className="w-full">
                 {isGenerating ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -729,8 +736,47 @@ export function CreateCardForm() {
       {currentCard && isEditing && (
         <Card>
           <CardHeader>
-            <CardTitle>编辑知识卡片</CardTitle>
-            <CardDescription>您可以编辑AI生成的内容，然后保存到您的学习库</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>编辑知识卡片</CardTitle>
+                <CardDescription>您可以编辑AI生成的内容，然后保存到您的学习库</CardDescription>
+              </div>
+              {generatedCards.length > 1 && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newIndex = selectedCardIndex > 0 ? selectedCardIndex - 1 : generatedCards.length - 1
+                      setSelectedCardIndex(newIndex)
+                      setCurrentCard({
+                        ...generatedCards[newIndex],
+                        difficulty: generatedCards[newIndex].difficulty || defaultDifficulty,
+                      })
+                    }}
+                  >
+                    上一张
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    {selectedCardIndex + 1} / {generatedCards.length}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newIndex = selectedCardIndex < generatedCards.length - 1 ? selectedCardIndex + 1 : 0
+                      setSelectedCardIndex(newIndex)
+                      setCurrentCard({
+                        ...generatedCards[newIndex],
+                        difficulty: generatedCards[newIndex].difficulty || defaultDifficulty,
+                      })
+                    }}
+                  >
+                    下一张
+                  </Button>
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-4">
