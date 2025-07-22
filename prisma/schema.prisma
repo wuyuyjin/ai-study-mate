@@ -23,6 +23,8 @@ model User {
   emailVerified     Boolean       @default(false) @map("email_verified")
   resetToken        String?       @map("reset_token")
   resetTokenExpiry  DateTime?     @map("reset_token_expiry")
+  consecutiveDays   Int           @default(0) @map("consecutive_days")
+  lastActiveDate    DateTime?     @map("last_active_date") @db.Date
   createdAt         DateTime      @default(now()) @map("created_at")
   updatedAt         DateTime      @updatedAt @map("updated_at")
   studyCards        StudyCard[]

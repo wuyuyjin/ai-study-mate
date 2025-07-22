@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Brain, BookOpen, Target, Plus, Clock, Star, Heart } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
+import { useToast } from "@/hooks/use-toast"
 
 interface StudyCard {
   id: string
@@ -20,6 +21,7 @@ interface StudyCard {
 
 export function Dashboard() {
   const { user } = useAuth()
+  const { toast } = useToast()
   const [recentCards, setRecentCards] = useState<StudyCard[]>([])
   const [stats, setStats] = useState({
     totalCards: 0,
@@ -30,6 +32,7 @@ export function Dashboard() {
     isPremiumUser: false,
   })
   const [isLoading, setIsLoading] = useState(true)
+  const [showStreakCelebration, setShowStreakCelebration] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -44,7 +47,7 @@ export function Dashboard() {
       // 并行获取卡片数据和连续天数数据
       const [cardsResponse, streakResponse] = await Promise.all([
         fetch("/api/cards"),
-        fetch("/api/stats/streak")
+        fetch("/api/user/streak")
       ])
 
       let totalCards = 0
@@ -94,7 +97,20 @@ export function Dashboard() {
       let streak = 0
       if (streakResponse.ok) {
         const streakData = await streakResponse.json()
-        streak = streakData.streak || 0
+        streak = streakData.consecutiveDays || 0
+
+        // 检查是否是新纪录，显示庆祝效果
+        if (streakData.isNewDay && streak > 1) {
+          setShowStreakCelebration(true)
+          toast({
+            title: "🎉 连续使用新纪录！",
+            description: `恭喜你已经连续使用 ${streak} 天了！`,
+            duration: 5000,
+          })
+
+          // 3秒后隐藏庆祝动画
+          setTimeout(() => setShowStreakCelebration(false), 3000)
+        }
       }
 
       // 判断用户类型（简化处理，实际应该从用户数据获取）
@@ -188,15 +204,23 @@ export function Dashboard() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className={`transition-all duration-300 ${showStreakCelebration ? 'ring-2 ring-yellow-400 shadow-lg' : ''}`}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">连续天数</CardTitle>
-            <Star className="h-4 w-4 text-muted-foreground" />
+            <Star className={`h-4 w-4 text-muted-foreground ${showStreakCelebration ? 'animate-bounce text-yellow-500' : ''}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className={`text-2xl font-bold ${showStreakCelebration ? 'animate-pulse text-yellow-600' : ''}`}>
               {isLoading ? "..." : stats.streak}
             </div>
+            {stats.streak > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {stats.streak >= 30 ? "传奇学习者！" :
+                  stats.streak >= 14 ? "专家级坚持！" :
+                    stats.streak >= 7 ? "一周连续！" :
+                      stats.streak >= 3 ? "保持下去！" : "很好的开始！"}
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card>

@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Textarea } from "@/components/ui/textarea"
-import { Brain, CheckCircle, XCircle, RotateCcw, Target, Trophy } from "lucide-react"
+import { Brain, CheckCircle, XCircle, RotateCcw, Target, Trophy, ArrowLeft } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import Link from "next/link"
 
 interface QuizCard {
   id: string
@@ -115,9 +116,17 @@ export function QuizInterface() {
             <Brain className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">暂无可测验的卡片</h3>
             <p className="text-muted-foreground mb-4">请先创建一些学习卡片，然后回来进行记忆测验</p>
-            <Button asChild>
-              <a href="/create">创建学习卡片</a>
-            </Button>
+            <div className="flex gap-3 justify-center">
+              <Button asChild variant="outline">
+                <Link href="/">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  返回首页
+                </Link>
+              </Button>
+              <Button asChild>
+                <Link href="/create">创建学习卡片</Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -164,15 +173,21 @@ export function QuizInterface() {
             </div>
 
             <div className="flex gap-3">
+              <Button asChild variant="outline" className="flex-1">
+                <Link href="/">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  返回首页
+                </Link>
+              </Button>
               <Button onClick={resetQuiz} className="flex-1">
                 <RotateCcw className="h-4 w-4 mr-2" />
                 重新测验
               </Button>
               <Button asChild variant="outline" className="flex-1 bg-transparent">
-                <a href="/cards">
+                <Link href="/cards">
                   <Target className="h-4 w-4 mr-2" />
                   复习卡片
-                </a>
+                </Link>
               </Button>
             </div>
           </CardContent>

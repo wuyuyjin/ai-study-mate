@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/hooks/use-toast"
-import { Brain, Clock, CheckCircle, ArrowRight, ArrowLeft, RotateCcw } from "lucide-react"
+import { Brain, Clock, CheckCircle, ArrowRight, ArrowLeft, RotateCcw, ArrowLeft as BackIcon } from "lucide-react"
+import Link from "next/link"
 
 interface QuizQuestion {
   id: string
@@ -205,14 +206,22 @@ export function QuizInterface() {
             </ul>
           </div>
 
-          <Button
-            onClick={startQuiz}
-            disabled={isLoading}
-            className="w-full"
-            size="lg"
-          >
-            {isLoading ? "准备中..." : "开始测验"}
-          </Button>
+          <div className="flex gap-3">
+            <Button asChild variant="outline" className="flex-1">
+              <Link href="/">
+                <BackIcon className="h-4 w-4 mr-2" />
+                返回首页
+              </Link>
+            </Button>
+            <Button
+              onClick={startQuiz}
+              disabled={isLoading}
+              className="flex-1"
+              size="lg"
+            >
+              {isLoading ? "准备中..." : "开始测验"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     )
@@ -293,6 +302,13 @@ export function QuizInterface() {
       {/* 导航按钮 */}
       <div className="flex justify-between">
         <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <Link href="/">
+              <BackIcon className="h-4 w-4 mr-2" />
+              返回首页
+            </Link>
+          </Button>
+
           <Button
             variant="outline"
             onClick={prevQuestion}
