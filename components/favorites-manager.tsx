@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,10 +19,11 @@ interface StudyCard {
   question: string
   answer: string
   tags: string[]
-  difficulty: string
+  difficulty: "easy" | "medium" | "hard"
   isFavorite: boolean
   createdAt: string
   updatedAt: string
+  reviewCount: number
 }
 
 interface PaginationInfo {
@@ -37,6 +38,8 @@ interface PaginationInfo {
 export function FavoritesManager() {
   const [cards, setCards] = useState<StudyCard[]>([])
   const [searchQuery, setSearchQuery] = useState("")
+  const [searchTrigger, setSearchTrigger] = useState("")
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [selectedTag, setSelectedTag] = useState<string>("all")
   const [sortBy, setSortBy] = useState<string>("newest")
   const [allTags, setAllTags] = useState<string[]>([])
@@ -55,7 +58,7 @@ export function FavoritesManager() {
 
   useEffect(() => {
     loadFavoriteCards()
-  }, [pagination.currentPage, searchQuery, selectedTag, sortBy])
+  }, [pagination.currentPage, searchTrigger, selectedTag, sortBy])
 
   const loadFavoriteCards = async () => {
     setIsLoading(true)
@@ -63,7 +66,7 @@ export function FavoritesManager() {
       const params = new URLSearchParams({
         page: pagination.currentPage.toString(),
         pageSize: pagination.pageSize.toString(),
-        search: searchQuery,
+        search: searchTrigger,
         tag: selectedTag,
         sortBy: sortBy,
       })
@@ -186,16 +189,7 @@ export function FavoritesManager() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">加载收藏卡片中...</p>
-        </div>
-      </div>
-    )
-  }
+  // 移除了原来的isLoading检查，现在在卡片列表区域显示加载状态
 
   return (
     <div className="space-y-6">
@@ -213,11 +207,27 @@ export function FavoritesManager() {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="搜索收藏的卡片..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+            placeholder="搜索收藏的卡片..."
+            value={searchQuery}
+            onChange={(e) => {
+              const value = e.target.value
+              setSearchQuery(value)
+              
+              // 清除之前的定时器
+              if (searchTimeoutRef.current) {
+                clearTimeout(searchTimeoutRef.current)
+              }
+              
+              // 设置新的定时器，延迟500ms执行搜索
+              searchTimeoutRef.current = setTimeout(() => {
+                // 更新搜索触发器以实际执行搜索
+                setSearchTrigger(value)
+                // 重置到第一页
+                setPagination(prev => ({ ...prev, currentPage: 1 }))
+              }, 500)
+            }}
+            className="pl-10"
+          />
             </div>
 
             <Select value={selectedTag} onValueChange={setSelectedTag}>
@@ -251,7 +261,14 @@ export function FavoritesManager() {
       </Card>
 
       {/* 卡片列表 */}
-      {cards.length === 0 ? (
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">加载收藏卡片中...</p>
+          </div>
+        </div>
+      ) : cards.length === 0 ? (
         <Card>
           <CardContent className="pt-6">
             <div className="text-center py-8">

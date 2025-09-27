@@ -36,7 +36,7 @@ const AnalysisSchema = z.object({
     userAnswer: z.string(),
     standardAnswer: z.string(),
     isCorrect: z.boolean(),
-    score: z.number().min(0).max(10),
+    score: z.number().min(0).max(100),
     feedback: z.string(),
     keyPoints: z.array(z.string()),
     suggestions: z.string().optional(),
@@ -83,6 +83,11 @@ ${questions.map((q: any, index: number) => `
 3. 即使答案不完全正确，如果包含关键要点也应给予较高分数
 4. 提供鼓励性的反馈和建设性建议
 5. 重点表扬用户的努力和已掌握的知识点
+6. 根据题目难度和总分要求分配分数，确保所有题目分数总和为100分：
+   - 首先统计题目数量和难度分布
+   - 根据难度合理分配每道题的分数，确保总分为100分
+   - 简单题目分数 < 中等题目分数 < 困难题目分数
+   - 请根据用户答案的质量在合理范围内分配具体分数
 
 返回严格的JSON格式，不要包含任何其他文本。特别注意isCorrect字段要准确反映答案的正确性。`
 
@@ -101,7 +106,7 @@ ${questions.map((q: any, index: number) => `
       "userAnswer": "字符串",
       "standardAnswer": "字符串",
       "isCorrect": 布尔值,
-      "score": 数字(0-10),
+      "score": 数字(0-100),
       "feedback": "字符串",
       "keyPoints": ["字符串数组"],
       "suggestions": "字符串(可选)"
@@ -113,7 +118,15 @@ ${questions.map((q: any, index: number) => `
   "recommendations": ["字符串数组"]
 }
 
-确保分析客观、有建设性，能帮助学生改进学习。不要返回Markdown格式，只返回纯JSON。`
+确保分析客观、有建设性，能帮助学生改进学习。不要返回Markdown格式，只返回纯JSON。
+
+评分规则：
+- 根据题目难度和总分要求分配分数，确保所有题目分数总和为100分：
+  - 首先统计题目数量和难度分布
+  - 根据难度合理分配每道题的分数，确保总分为100分
+  - 简单题目分数 < 中等题目分数 < 困难题目分数
+  - 请根据用户答案的质量在合理范围内分配具体分数
+- overallScore应为所有题目分数的总和`
 
     // 调用AI进行分析
     const result = await generateObject({

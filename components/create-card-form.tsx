@@ -44,6 +44,7 @@ export function CreateCardForm() {
   // 文件上传固定使用 Moonshot AI
   const [generatedCards, setGeneratedCards] = useState<GeneratedCard[]>([])
   const [selectedCardIndex, setSelectedCardIndex] = useState<number>(0)
+  const [isSaving, setIsSaving] = useState(false)
 
   // 处理标签页切换，清空卡片内容
   const handleTabChange = (value: string) => {
@@ -71,10 +72,20 @@ export function CreateCardForm() {
       // 清空文本和URL相关状态
       setInputText("")
       setUrlInput("")
+      // 重置文件输入元素
+      const fileInput = document.getElementById("file-upload") as HTMLInputElement;
+      if (fileInput) {
+        fileInput.value = "";
+      }
     } else if (value === "url") {
       // 清空文本和文件相关状态
       setInputText("")
       setUploadedFile(null)
+      // 重置文件输入元素
+      const fileInput = document.getElementById("file-upload") as HTMLInputElement;
+      if (fileInput) {
+        fileInput.value = "";
+      }
     }
 
     // 重置生成状态
@@ -184,10 +195,14 @@ export function CreateCardForm() {
       const data = await response.json()
       if (data.cards && data.cards.length > 0) {
         const newCard = data.cards[0]
+        // 合并标签并去重
+        const mergedTags = [...(newCard.tags || []), ...(currentCard.tags || [])]
+        const uniqueTags = Array.from(new Set(mergedTags))
+        
         setCurrentCard({
           ...newCard,
           difficulty: newCard.difficulty || defaultDifficulty,
-          tags: [...(newCard.tags || []), ...(currentCard.tags || [])]
+          tags: uniqueTags
         })
 
         toast({
@@ -218,6 +233,7 @@ export function CreateCardForm() {
       return
     }
 
+    setIsSaving(true)
     try {
       const cardToSave = {
         title: currentCard.title,
@@ -259,19 +275,21 @@ export function CreateCardForm() {
         description: "知识卡片已保存到你的学习库",
       })
 
-      // 重置表单
-      setCurrentCard(null)
-      setIsEditing(false)
-      setInputText("")
-      setCustomTags([])
-      setUploadedFile(null)
-      setUrlInput("")
+      // 不重置表单，保持当前卡片内容
+      // setCurrentCard(null)
+      // setIsEditing(false)
+      // setInputText("")
+      // setCustomTags([])
+      // setUploadedFile(null)
+      // setUrlInput("")
     } catch (error) {
       toast({
         title: "保存失败",
         description: "请稍后重试",
         variant: "destructive",
       })
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -342,10 +360,17 @@ export function CreateCardForm() {
       })
 
       if (!response.ok) {
-        throw new Error("生成失败")
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "生成失败")
       }
 
       const data = await response.json()
+      
+      // 验证返回的数据格式
+      if (!data || !Array.isArray(data.cards)) {
+        throw new Error("AI返回的数据格式不正确")
+      }
+
       setGeneratedCards(data.cards)
 
       // 如果有生成的卡片，设置第一张为当前卡片
@@ -363,9 +388,10 @@ export function CreateCardForm() {
         description: `已使用 Moonshot AI 从文件生成 ${data.cards.length} 张知识卡片`,
       })
     } catch (error) {
+      console.error("Moonshot AI生成卡片失败:", error)
       toast({
         title: "生成失败",
-        description: "请稍后重试或检查文件内容",
+        description: error instanceof Error ? error.message : "请稍后重试或检查文件内容",
         variant: "destructive",
       })
     } finally {
@@ -577,7 +603,14 @@ export function CreateCardForm() {
                         {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
                       </Badge>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => setUploadedFile(null)}>
+                    <Button variant="ghost" size="sm" onClick={() => {
+                      setUploadedFile(null);
+                      // 重置文件输入元素的value，确保可以重新选择相同的文件
+                      const fileInput = document.getElementById("file-upload") as HTMLInputElement;
+                      if (fileInput) {
+                        fileInput.value = "";
+                      }
+                    }}>
                       <X className="h-4 w-4" />
                     </Button>
                   </div>
@@ -875,9 +908,18 @@ export function CreateCardForm() {
             </div>
 
             <div className="flex gap-2 pt-4">
-              <Button onClick={handleSaveCard} className="flex-1">
-                <Save className="h-4 w-4 mr-2" />
-                保存卡片
+              <Button onClick={handleSaveCard} disabled={isSaving} className="flex-1">
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    保存中...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    保存卡片
+                  </>
+                )}
               </Button>
               <Button
                 variant="outline"

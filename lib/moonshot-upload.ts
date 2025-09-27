@@ -191,14 +191,64 @@ ${customTags.length > 0 ? `用户指定的标签：${customTags.join(", ")}` : "
         return parsedResponse;
     } catch (error) {
         // 如果不是标准JSON，尝试提取JSON部分
+        // 首先尝试匹配完整的JSON对象
         const jsonMatch = response.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
             try {
-                return JSON.parse(jsonMatch[0]);
+                // 尝试解析匹配到的JSON
+                const parsed = JSON.parse(jsonMatch[0]);
+                // 验证是否包含cards数组
+                if (parsed && Array.isArray(parsed.cards)) {
+                    return { cards: parsed.cards };
+                } else if (parsed && parsed.cards && Array.isArray(parsed.cards)) {
+                    return parsed;
+                }
+                // 如果验证失败，继续下面的处理
             } catch (e) {
-                throw new Error(`无法解析AI响应: ${response}`);
+                // 继续下面的处理
             }
         }
-        throw new Error(`AI响应格式错误: ${response}`);
+        
+        // 尝试更宽松的JSON提取方式
+        const jsonStart = response.indexOf('{');
+        const jsonEnd = response.lastIndexOf('}');
+        
+        if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+            try {
+                const jsonString = response.substring(jsonStart, jsonEnd + 1);
+                const parsed = JSON.parse(jsonString);
+                // 验证是否包含cards数组
+                if (parsed && (Array.isArray(parsed.cards) || (parsed.cards && Array.isArray(parsed.cards)))) {
+                    return parsed;
+                }
+            } catch (e) {
+                // 继续下面的处理
+            }
+        }
+        
+        // 如果响应看起来包含有效的卡片数据，尝试手动解析
+        if (response.includes('"cards"') && response.includes('"title"') && response.includes('"content"')) {
+            // 创建一个更宽松的解析器
+            try {
+                // 尝试修复常见的JSON格式问题
+                let cleanResponse = response
+                    .replace(/,\s*}/g, '}')  // 移除尾随逗号
+                    .replace(/,\s*]/g, ']'); // 移除数组尾随逗号
+                
+                // 再次尝试解析
+                const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    const parsed = JSON.parse(jsonMatch[0]);
+                    if (parsed && (Array.isArray(parsed.cards) || (parsed.cards && Array.isArray(parsed.cards)))) {
+                        return parsed;
+                    }
+                }
+            } catch (e) {
+                // 继续下面的处理
+            }
+        }
+        
+        // 如果所有方法都失败了，抛出详细的错误信息
+        throw new Error(`无法解析AI响应: ${response.substring(0, 500)}${response.length > 500 ? '...' : ''}`);
     }
 }

@@ -228,7 +228,7 @@ export function QuizResult() {
                   </CardTitle>
                   <div className="flex items-center gap-2">
                     <Badge variant={item.isCorrect ? "default" : "destructive"}>
-                      {item.score}/10分
+                      {item.score}/{item.difficulty === 'easy' ? '5' : item.difficulty === 'medium' ? '10' : '15'}分
                     </Badge>
                     {item.isCorrect ? (
                       <CheckCircle className="h-5 w-5 text-green-600" />
