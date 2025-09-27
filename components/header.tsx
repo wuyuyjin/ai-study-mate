@@ -25,6 +25,9 @@ export function Header() {
         </Link>
 
         <nav className="hidden md:flex items-center space-x-6">
+          <Link href="/" className="text-sm font-medium hover:text-primary">
+            首页
+          </Link>
           <Link href="/cards" className="text-sm font-medium hover:text-primary">
             我的卡片
           </Link>
