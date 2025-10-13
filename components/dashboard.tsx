@@ -307,21 +307,21 @@ export function Dashboard() {
                               ? "default"
                               : "destructive"
                         }
-                        className="text-xs"
+                        className="text-xs whitespace-nowrap"
                       >
                         {card.difficulty === "easy" ? "简单" : card.difficulty === "medium" ? "中等" : "困难"}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground mb-2 line-clamp-2">{card.content}</p>
-                    <div className="flex items-center justify-between">
-                      <div className="flex gap-1">
-                        {card.tags.map((tag) => (
-                          <Badge key={tag} variant="outline" className="text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap gap-1">
+                        {Array.from(new Set(card.tags)).map((tag, tagIndex) => (
+                          <Badge key={`${card.id}-${tagIndex}`} variant="outline" className="text-xs whitespace-normal break-words">
                             {tag}
                           </Badge>
                         ))}
                       </div>
-                      <span className="text-xs text-muted-foreground">复习 {card.reviewCount} 次</span>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">复习 {card.reviewCount} 次</span>
                     </div>
                   </div>
                 ))}

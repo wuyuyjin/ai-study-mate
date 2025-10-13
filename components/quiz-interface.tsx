@@ -210,8 +210,8 @@ export function QuizInterface() {
               {currentIndex + 1} / {quizCards.length}
             </Badge>
             <div className="flex gap-1">
-              {currentCard.tags.map((tag) => (
-                <Badge key={tag} variant="secondary" className="text-xs">
+              {Array.from(new Set(currentCard.tags)).map((tag, tagIndex) => (
+                <Badge key={`${currentCard.id}-${tagIndex}`} variant="secondary" className="text-xs">
                   {tag}
                 </Badge>
               ))}

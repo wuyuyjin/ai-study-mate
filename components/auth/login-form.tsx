@@ -170,20 +170,20 @@ export function LoginForm() {
         <div className="absolute inset-0 flex items-center">
           <Separator className="w-full" />
         </div>
-        <div className="relative flex justify-center text-xs uppercase">
+        {/* <div className="relative flex justify-center text-xs uppercase">
           <span className="bg-background px-2 text-muted-foreground">或者</span>
-        </div>
+        </div> */}
       </div>
 
-      <Button type="button" variant="outline" className="w-full bg-transparent" onClick={handleDemoLogin}>
+      {/* <Button type="button" variant="outline" className="w-full bg-transparent" onClick={handleDemoLogin}>
         使用演示账户登录
-      </Button>
+      </Button> */}
 
-      <div className="text-xs text-muted-foreground text-center">
+      {/* <div className="text-xs text-muted-foreground text-center">
         <p>演示账户信息：</p>
         <p>邮箱: demo@studymate.com</p>
         <p>密码: demo123456</p>
-      </div>
+      </div> */}
     </div>
   )
 }

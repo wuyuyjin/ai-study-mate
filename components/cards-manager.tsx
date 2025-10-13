@@ -276,8 +276,8 @@ export function CardsManager() {
                         {card.isFavorite && <Star className="h-4 w-4 text-yellow-500 fill-current" />}
                       </div>
                       <div className="flex flex-wrap gap-1 mb-2">
-                        {card.tags.map((tag) => (
-                          <Badge key={tag} variant="outline" className="text-xs">
+                        {Array.from(new Set(card.tags)).map((tag, tagIndex) => (
+                          <Badge key={`${card.id}-${tagIndex}`} variant="outline" className="text-xs">
                             {tag}
                           </Badge>
                         ))}

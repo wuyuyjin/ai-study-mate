@@ -186,8 +186,8 @@ export function QuizInterface() {
           <div className="mx-auto mb-4 p-3 bg-primary/10 rounded-full w-fit">
             <Brain className="h-8 w-8 text-primary" />
           </div>
-          <CardTitle className="text-2xl">记忆测验</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-2xl sm:text-3xl">记忆测验</CardTitle>
+          <CardDescription className="text-sm sm:text-base">
             凭记忆回答问题，检验您的学习成果
           </CardDescription>
         </CardHeader>
@@ -195,9 +195,9 @@ export function QuizInterface() {
           <div className="bg-amber-50 dark:bg-amber-950/20 rounded-lg p-4 space-y-2 border border-amber-200 dark:border-amber-800">
             <div className="flex items-center gap-2">
               <Brain className="h-5 w-5 text-amber-600" />
-              <h3 className="font-medium text-amber-800 dark:text-amber-200">记忆测验说明：</h3>
+              <h3 className="font-medium text-amber-800 dark:text-amber-200 text-sm sm:text-base">记忆测验说明：</h3>
             </div>
-            <ul className="text-sm text-amber-700 dark:text-amber-300 space-y-1">
+            <ul className="text-xs sm:text-sm text-amber-700 dark:text-amber-300 space-y-1">
               <li>• 系统将从您的卡片库中随机选择最多10张卡片</li>
               <li>• <strong>请凭记忆回答问题，不要查看任何资料</strong></li>
               <li>• 即使不确定也请尽量回答，部分正确也会得分</li>
@@ -236,7 +236,7 @@ export function QuizInterface() {
       {/* 进度和计时器 */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-0">
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4" />
               <span className="text-sm font-medium">{formatTime(elapsedTime)}</span>
@@ -245,18 +245,18 @@ export function QuizInterface() {
               {currentQuestionIndex + 1} / {quiz.totalQuestions}
             </div>
           </div>
-          <Progress value={progress} className="h-2" />
+          <Progress value={progress} className="h-2 mt-2" />
         </CardContent>
       </Card>
 
       {/* 题目卡片 */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <CardTitle className="text-lg sm:text-xl">
               题目 {currentQuestion.questionNumber}: {currentQuestion.title}
             </CardTitle>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Badge variant={
                 currentQuestion.difficulty === "easy" ? "secondary" :
                   currentQuestion.difficulty === "medium" ? "default" : "destructive"
@@ -264,8 +264,8 @@ export function QuizInterface() {
                 {currentQuestion.difficulty === "easy" ? "简单" :
                   currentQuestion.difficulty === "medium" ? "中等" : "困难"}
               </Badge>
-              {currentQuestion.tags.map((tag) => (
-                <Badge key={tag} variant="outline" className="text-xs">
+              {Array.from(new Set(currentQuestion.tags)).map((tag, tagIndex) => (
+                <Badge key={`${currentQuestion.id}-${tagIndex}`} variant="outline" className="text-xs">
                   {tag}
                 </Badge>
               ))}
@@ -278,13 +278,13 @@ export function QuizInterface() {
               <Brain className="h-4 w-4 text-blue-600" />
               <span className="text-sm font-medium text-blue-800 dark:text-blue-200">记忆测验</span>
             </div>
-            <p className="text-sm text-blue-700 dark:text-blue-300">
+            <p className="text-xs sm:text-sm text-blue-700 dark:text-blue-300">
               请凭记忆回答以下问题，不要查看任何资料。这是检验您学习效果的好机会！
             </p>
           </div>
 
           <div>
-            <h4 className="font-medium mb-3 text-lg">{currentQuestion.question}</h4>
+            <h4 className="font-medium mb-3 text-lg sm:text-xl">{currentQuestion.question}</h4>
             <Textarea
               value={currentQuestion.userAnswer}
               onChange={(e) => updateAnswer(e.target.value)}
@@ -300,9 +300,9 @@ export function QuizInterface() {
       </Card>
 
       {/* 导航按钮 */}
-      <div className="flex justify-between">
-        <div className="flex gap-2">
-          <Button asChild variant="outline">
+      <div className="flex flex-col sm:flex-row justify-between gap-3">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button asChild variant="outline" className="w-full sm:w-auto">
             <Link href="/">
               <BackIcon className="h-4 w-4 mr-2" />
               返回首页
@@ -313,25 +313,26 @@ export function QuizInterface() {
             variant="outline"
             onClick={prevQuestion}
             disabled={currentQuestionIndex === 0}
+            className="w-full sm:w-auto"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             上一题
           </Button>
 
           {currentQuestionIndex < quiz.totalQuestions - 1 ? (
-            <Button onClick={nextQuestion}>
+            <Button onClick={nextQuestion} className="w-full sm:w-auto">
               下一题
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           ) : (
-            <Button onClick={submitQuiz} disabled={isLoading}>
+            <Button onClick={submitQuiz} disabled={isLoading} className="w-full sm:w-auto">
               {isLoading ? "提交中..." : "完成测验"}
               <CheckCircle className="h-4 w-4 ml-2" />
             </Button>
           )}
         </div>
 
-        <Button variant="outline" onClick={resetQuiz}>
+        <Button variant="outline" onClick={resetQuiz} className="w-full sm:w-auto">
           <RotateCcw className="h-4 w-4 mr-2" />
           重新开始
         </Button>

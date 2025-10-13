@@ -107,8 +107,8 @@ export function QuizResult() {
           <div className="mx-auto mb-4">
             {getScoreIcon(analysis.overallScore)}
           </div>
-          <CardTitle className="text-3xl">测验完成！</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-2xl sm:text-3xl">测验完成！</CardTitle>
+          <CardDescription className="text-sm sm:text-base">
             您已完成记忆测验，以下是详细的分析结果
             <br />
             <span className="text-xs text-muted-foreground">
@@ -117,30 +117,30 @@ export function QuizResult() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-center">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 text-center">
             <div>
-              <div className={`text-3xl font-bold ${getScoreColor(analysis.overallScore)}`}>
+              <div className={`text-2xl sm:text-3xl font-bold ${getScoreColor(analysis.overallScore)}`}>
                 {analysis.overallScore}
               </div>
-              <div className="text-sm text-muted-foreground">总分</div>
+              <div className="text-xs sm:text-sm text-muted-foreground">总分</div>
             </div>
             <div>
-              <div className="text-3xl font-bold text-green-600">
+              <div className="text-2xl sm:text-3xl font-bold text-green-600">
                 {analysis.correctAnswers}
               </div>
-              <div className="text-sm text-muted-foreground">正确答案</div>
+              <div className="text-xs sm:text-sm text-muted-foreground">正确答案</div>
             </div>
             <div>
-              <div className="text-3xl font-bold">
+              <div className="text-2xl sm:text-3xl font-bold">
                 {analysis.totalQuestions}
               </div>
-              <div className="text-sm text-muted-foreground">总题数</div>
+              <div className="text-xs sm:text-sm text-muted-foreground">总题数</div>
             </div>
             <div>
-              <div className="text-3xl font-bold text-blue-600">
+              <div className="text-2xl sm:text-3xl font-bold text-blue-600">
                 {formatTime(elapsedTime)}
               </div>
-              <div className="text-sm text-muted-foreground">用时</div>
+              <div className="text-xs sm:text-sm text-muted-foreground">用时</div>
             </div>
           </div>
 
@@ -161,7 +161,7 @@ export function QuizResult() {
 
       {/* 详细分析 */}
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3">
           <TabsTrigger value="overview">总体分析</TabsTrigger>
           <TabsTrigger value="questions">题目详情</TabsTrigger>
           <TabsTrigger value="suggestions">学习建议</TabsTrigger>
@@ -171,7 +171,7 @@ export function QuizResult() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-lg">
                   <TrendingUp className="h-5 w-5 text-green-600" />
                   优势
                 </CardTitle>
@@ -190,7 +190,7 @@ export function QuizResult() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-lg">
                   <TrendingDown className="h-5 w-5 text-red-600" />
                   需要改进
                 </CardTitle>
@@ -210,7 +210,7 @@ export function QuizResult() {
 
           <Card>
             <CardHeader>
-              <CardTitle>整体反馈</CardTitle>
+              <CardTitle className="text-lg">整体反馈</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm leading-relaxed">{analysis.overallFeedback}</p>
@@ -222,7 +222,7 @@ export function QuizResult() {
           {analysis.analysis.map((item: any, index: number) => (
             <Card key={index}>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <CardTitle className="text-lg">
                     题目 {item.questionNumber}: {item.title}
                   </CardTitle>
@@ -285,7 +285,7 @@ export function QuizResult() {
         <TabsContent value="suggestions" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <Brain className="h-5 w-5" />
                 学习建议
               </CardTitle>
@@ -307,21 +307,21 @@ export function QuizResult() {
       </Tabs>
 
       {/* 操作按钮 */}
-      <div className="flex gap-4 justify-center">
+      <div className="flex flex-col sm:flex-row gap-4 justify-center">
         <Link href="/quiz">
-          <Button variant="outline">
+          <Button variant="outline" className="w-full sm:w-auto">
             <RotateCcw className="h-4 w-4 mr-2" />
             再次测验
           </Button>
         </Link>
         <Link href="/cards">
-          <Button variant="outline">
+          <Button variant="outline" className="w-full sm:w-auto">
             <Brain className="h-4 w-4 mr-2" />
             查看卡片
           </Button>
         </Link>
         <Link href="/">
-          <Button>
+          <Button className="w-full sm:w-auto">
             <Home className="h-4 w-4 mr-2" />
             返回首页
           </Button>
