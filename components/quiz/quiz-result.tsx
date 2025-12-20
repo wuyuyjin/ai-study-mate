@@ -55,15 +55,17 @@ export function QuizResult() {
     return `${mins}分${secs}秒`
   }
 
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-green-600"
-    if (score >= 60) return "text-yellow-600"
+  const getScoreColor = (score: number, totalQuestions: number) => {
+    const percentage = (score / (totalQuestions * 10)) * 100
+    if (percentage >= 80) return "text-green-600"
+    if (percentage >= 60) return "text-yellow-600"
     return "text-red-600"
   }
 
-  const getScoreIcon = (score: number) => {
-    if (score >= 80) return <Trophy className="h-8 w-8 text-yellow-500" />
-    if (score >= 60) return <Target className="h-8 w-8 text-blue-500" />
+  const getScoreIcon = (score: number, totalQuestions: number) => {
+    const percentage = (score / (totalQuestions * 10)) * 100
+    if (percentage >= 80) return <Trophy className="h-8 w-8 text-yellow-500" />
+    if (percentage >= 60) return <Target className="h-8 w-8 text-blue-500" />
     return <Brain className="h-8 w-8 text-gray-500" />
   }
 
@@ -105,7 +107,7 @@ export function QuizResult() {
       <Card>
         <CardHeader className="text-center">
           <div className="mx-auto mb-4">
-            {getScoreIcon(analysis.overallScore)}
+            {getScoreIcon(analysis.overallScore, analysis.totalQuestions)}
           </div>
           <CardTitle className="text-2xl sm:text-3xl">测验完成！</CardTitle>
           <CardDescription className="text-sm sm:text-base">
@@ -119,8 +121,8 @@ export function QuizResult() {
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 text-center">
             <div>
-              <div className={`text-2xl sm:text-3xl font-bold ${getScoreColor(analysis.overallScore)}`}>
-                {analysis.overallScore}
+              <div className={`text-2xl sm:text-3xl font-bold ${getScoreColor(analysis.overallScore, analysis.totalQuestions)}`}>
+                {analysis.overallScore}/{analysis.totalQuestions * 10}
               </div>
               <div className="text-xs sm:text-sm text-muted-foreground">总分</div>
             </div>
@@ -228,7 +230,7 @@ export function QuizResult() {
                   </CardTitle>
                   <div className="flex items-center gap-2">
                     <Badge variant={item.isCorrect ? "default" : "destructive"}>
-                      {item.score}/{item.difficulty === 'easy' ? '5' : item.difficulty === 'medium' ? '10' : '15'}分
+                      {item.score}/10分
                     </Badge>
                     {item.isCorrect ? (
                       <CheckCircle className="h-5 w-5 text-green-600" />

@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { generateObject } from "@/lib/ai"
-import { configuredOpenai } from "@/lib/openai";
 import { CardsResponseSchema } from "@/lib/schemas"
 import { extractPdfText, extractMarkdownContent, validateFileType, getFileTypeFromName } from "@/lib/pdf-processor"
 

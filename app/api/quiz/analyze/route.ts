@@ -26,7 +26,7 @@ async function getCurrentUserId(req: NextRequest): Promise<string | null> {
 
 // 定义分析结果的schema
 const AnalysisSchema = z.object({
-  overallScore: z.number().min(0).max(100),
+  overallScore: z.number().min(0),
   totalQuestions: z.number(),
   correctAnswers: z.number(),
   analysis: z.array(z.object({
@@ -36,7 +36,7 @@ const AnalysisSchema = z.object({
     userAnswer: z.string(),
     standardAnswer: z.string(),
     isCorrect: z.boolean(),
-    score: z.number().min(0).max(100),
+    score: z.number().min(0).max(10),
     feedback: z.string(),
     keyPoints: z.array(z.string()),
     suggestions: z.string().optional(),
@@ -79,15 +79,19 @@ ${questions.map((q: any, index: number) => `
    - 如果用户答案包含标准答案的核心要点，即使表达不同也应判定为正确(isCorrect: true)
    - 如果用户答案部分正确或相关，可以给予部分分数但判定为不完全正确(isCorrect: false)
    - 如果用户答案完全错误或未回答，判定为错误(isCorrect: false)
-2. 评分要宽松鼓励，但正确性判断要准确
-3. 即使答案不完全正确，如果包含关键要点也应给予较高分数
+2. 评分标准（每道题满分10分）：
+   - 完全正确且表达清晰：9-10分
+   - 答案正确但表达欠佳：7-8分
+   - 部分正确，包含主要要点：5-6分
+   - 部分正确，但缺少关键要点：3-4分
+   - 答案不完整或大部分错误：1-2分
+   - 完全错误或未回答：0分
+3. 评分要客观准确，根据答案质量给分
 4. 提供鼓励性的反馈和建设性建议
 5. 重点表扬用户的努力和已掌握的知识点
-6. 根据题目难度和总分要求分配分数，确保所有题目分数总和为100分：
-   - 首先统计题目数量和难度分布
-   - 根据难度合理分配每道题的分数，确保总分为100分
-   - 简单题目分数 < 中等题目分数 < 困难题目分数
-   - 请根据用户答案的质量在合理范围内分配具体分数
+6. **重要：overallScore 必须等于所有题目 score 的总和**
+   - 例如：题目1得8分，题目2得5分，题目3得0分 → overallScore = 8 + 5 + 0 = 13分
+   - 请在返回结果前，将所有题目的 score 相加，计算出 overallScore
 
 返回严格的JSON格式，不要包含任何其他文本。特别注意isCorrect字段要准确反映答案的正确性。`
 
@@ -95,7 +99,7 @@ ${questions.map((q: any, index: number) => `
 
 必须返回严格的JSON格式，包含以下字段：
 {
-  "overallScore": 数字(0-100),
+  "overallScore": 数字(所有题目得分总和),
   "totalQuestions": 数字,
   "correctAnswers": 数字,
   "analysis": [
@@ -106,7 +110,7 @@ ${questions.map((q: any, index: number) => `
       "userAnswer": "字符串",
       "standardAnswer": "字符串",
       "isCorrect": 布尔值,
-      "score": 数字(0-100),
+      "score": 数字(0-10),
       "feedback": "字符串",
       "keyPoints": ["字符串数组"],
       "suggestions": "字符串(可选)"
@@ -121,12 +125,16 @@ ${questions.map((q: any, index: number) => `
 确保分析客观、有建设性，能帮助学生改进学习。不要返回Markdown格式，只返回纯JSON。
 
 评分规则：
-- 根据题目难度和总分要求分配分数，确保所有题目分数总和为100分：
-  - 首先统计题目数量和难度分布
-  - 根据难度合理分配每道题的分数，确保总分为100分
-  - 简单题目分数 < 中等题目分数 < 困难题目分数
-  - 请根据用户答案的质量在合理范围内分配具体分数
-- overallScore应为所有题目分数的总和`
+- 每道题满分10分，根据答案质量评分：
+  - 完全正确且表达清晰：9-10分
+  - 答案正确但表达欠佳：7-8分
+  - 部分正确，包含主要要点：5-6分
+  - 部分正确，但缺少关键要点：3-4分
+  - 答案不完整或大部分错误：1-2分
+  - 完全错误或未回答：0分
+- **关键：overallScore 必须等于所有题目 score 的总和**
+  - 例如：题目1得8分，题目2得5分，题目3得0分 → overallScore = 8 + 5 + 0 = 13分
+  - 请务必将所有题目的分数相加后填入 overallScore 字段`
 
     // 调用AI进行分析
     const result = await generateObject({
@@ -135,6 +143,13 @@ ${questions.map((q: any, index: number) => `
       prompt: analysisPrompt,
       schema: AnalysisSchema,
     })
+
+    // 验证并修正总分（以防AI计算错误）
+    const calculatedTotalScore = result.object.analysis.reduce((sum: number, item: any) => sum + item.score, 0)
+    if (result.object.overallScore !== calculatedTotalScore) {
+      console.warn(`AI计算的总分(${result.object.overallScore})与实际总分(${calculatedTotalScore})不符，已自动修正`)
+      result.object.overallScore = calculatedTotalScore
+    }
 
     // 更新卡片的复习次数
     try {
