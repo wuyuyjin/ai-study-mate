@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,6 +23,28 @@ export function LoginForm() {
   const { toast } = useToast()
   const { signIn } = useAuth()
   const router = useRouter()
+
+  // 在组件加载时调用测试 API
+  useEffect(() => {
+    const testApi = async () => {
+      try {
+        const response = await fetch("/api/test")
+        const data = await response.json()
+        console.log("测试 API 响应:", data)
+        
+        if (data.success) {
+          toast({
+            title: "API 测试成功",
+            description: data.message,
+          })
+        }
+      } catch (error) {
+        console.error("测试 API 调用失败:", error)
+      }
+    }
+
+    testApi()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
